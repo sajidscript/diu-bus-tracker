@@ -64,8 +64,11 @@ export function useAuth(): {
   }, [setSession, setProfile, setAuthLoading, clearAuth]);
 
   const signOut = async (): Promise<void> => {
-    await supabase.auth.signOut();
-    clearAuth();
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      clearAuth();
+    }
   };
 
   const getDashboard = (): string => {

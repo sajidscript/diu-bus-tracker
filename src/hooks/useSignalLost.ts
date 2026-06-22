@@ -10,7 +10,7 @@ export function useSignalLost(): Set<string> {
     intervalRef.current = setInterval(() => {
       const now = Date.now();
       const stale = new Set<string>();
-      busLocations.forEach((loc, busId) => {
+      Object.entries(busLocations).forEach(([busId, loc]) => {
         const updatedAt = new Date(loc.updated_at).getTime();
         if (now - updatedAt > 60000) {
           stale.add(busId);

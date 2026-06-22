@@ -10,13 +10,25 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = ''
 AS $$
+DECLARE
+  v_role text;
 BEGIN
+  -- Whitelist: only student or driver can self-sign-up.
+  -- Admin must be assigned manually in the database.
+  v_role := COALESCE(
+    NULLIF(NEW.raw_user_meta_data ->> 'role', ''),
+    'student'
+  );
+  IF v_role NOT IN ('student', 'driver') THEN
+    v_role := 'student';
+  END IF;
+
   INSERT INTO public.profiles (id, email, full_name, role)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data ->> 'full_name', ''),
-    COALESCE(NEW.raw_user_meta_data ->> 'role', 'student')
+    v_role
   );
   RETURN NEW;
 END;

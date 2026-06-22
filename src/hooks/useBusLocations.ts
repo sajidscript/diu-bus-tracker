@@ -8,7 +8,7 @@ export function useBusLocations(): {
   loading: boolean;
   error: string | null;
 } {
-  const { busLocations, setBusLocation, setAllLocations } = useAppStore();
+  const { busLocations, setBusLocation, setAllLocations, removeBusLocation } = useAppStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,9 +22,9 @@ export function useBusLocations(): {
           .select('*');
         if (fetchError) throw fetchError;
         if (!cancelled && data) {
-          const map = new Map<string, BusLocation>();
+          const map: Record<string, BusLocation> = {};
           for (const loc of data as BusLocation[]) {
-            map.set(loc.bus_id, loc);
+            map[loc.bus_id] = loc;
           }
           setAllLocations(map);
         }
@@ -50,9 +50,15 @@ export function useBusLocations(): {
         },
         (payload) => {
           if (cancelled) return;
-          const newLocation = payload.new as BusLocation;
-          if (newLocation?.bus_id) {
-            setBusLocation(newLocation.bus_id, newLocation);
+          if (payload.eventType === 'DELETE') {
+            if (payload.old?.bus_id) {
+              removeBusLocation(payload.old.bus_id);
+            }
+          } else {
+            const newLocation = payload.new as BusLocation;
+            if (newLocation?.bus_id) {
+              setBusLocation(newLocation.bus_id, newLocation);
+            }
           }
         },
       )
@@ -62,10 +68,10 @@ export function useBusLocations(): {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [setBusLocation, setAllLocations]);
+  }, [setBusLocation, setAllLocations, removeBusLocation]);
 
   return {
-    locations: Array.from(busLocations.values()),
+    locations: Object.values(busLocations),
     loading,
     error,
   };

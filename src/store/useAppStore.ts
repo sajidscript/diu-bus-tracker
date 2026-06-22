@@ -1,12 +1,14 @@
 import { create } from 'zustand';
 import type { Profile, Role, BusLocation, Toast } from '@/lib/types';
 
+const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
 interface AppState {
   session: { user: { id: string } } | null;
   profile: Profile | null;
   role: Role | null;
   authLoading: boolean;
-  busLocations: Map<string, BusLocation>;
+  busLocations: Record<string, BusLocation>;
   selectedRouteId: string;
   toasts: Toast[];
 
@@ -15,7 +17,7 @@ interface AppState {
   setAuthLoading: (loading: boolean) => void;
   setBusLocation: (busId: string, location: BusLocation) => void;
   removeBusLocation: (busId: string) => void;
-  setAllLocations: (locations: Map<string, BusLocation>) => void;
+  setAllLocations: (locations: Record<string, BusLocation>) => void;
   setSelectedRouteId: (id: string) => void;
   addToast: (type: Toast['type'], message: string) => void;
   removeToast: (id: string) => void;
@@ -27,7 +29,7 @@ export const useAppStore = create<AppState>((set) => ({
   profile: null,
   role: null,
   authLoading: true,
-  busLocations: new Map(),
+  busLocations: {},
   selectedRouteId: 'all',
   toasts: [],
 
@@ -46,17 +48,15 @@ export const useAppStore = create<AppState>((set) => ({
   setAuthLoading: (authLoading) => set({ authLoading }),
 
   setBusLocation: (busId, location) =>
-    set((state) => {
-      const next = new Map(state.busLocations);
-      next.set(busId, location);
-      return { busLocations: next };
-    }),
+    set((state) => ({
+      busLocations: { ...state.busLocations, [busId]: location },
+    })),
 
   removeBusLocation: (busId) =>
     set((state) => {
-      const next = new Map(state.busLocations);
-      next.delete(busId);
-      return { busLocations: next };
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [busId]: _removed, ...rest } = state.busLocations;
+      return { busLocations: rest };
     }),
 
   setAllLocations: (locations) => set({ busLocations: locations }),
@@ -67,24 +67,24 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => {
       const id = crypto.randomUUID();
       const newToast: Toast = { id, type, message };
-      const toasts = [...state.toasts, newToast];
-      if (type === 'success') {
-        setTimeout(() => {
+      const toasts = [...state.toasts, newToast].slice(-5);
+      const delay = type === 'success' ? 3000 : type === 'warning' ? 5000 : null;
+      if (delay !== null) {
+        const tid = setTimeout(() => {
+          toastTimeouts.delete(id);
           useAppStore.getState().removeToast(id);
-        }, 3000);
-      }
-      if (type === 'warning') {
-        setTimeout(() => {
-          useAppStore.getState().removeToast(id);
-        }, 5000);
+        }, delay);
+        toastTimeouts.set(id, tid);
       }
       return { toasts };
     }),
 
-  removeToast: (id) =>
-    set((state) => ({
-      toasts: state.toasts.filter((t) => t.id !== id),
-    })),
+  removeToast: (id) => {
+      const tid = toastTimeouts.get(id);
+      if (tid !== undefined) clearTimeout(tid);
+      toastTimeouts.delete(id);
+      set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
+    },
 
   clearAuth: () =>
     set({

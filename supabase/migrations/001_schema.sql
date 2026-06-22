@@ -4,14 +4,24 @@
 -- ── Extensions ──────────────────────────────────────────────────────
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- ── Helper function for RLS (SECURITY DEFINER) ────────────────────
+-- ── Helper function for RLS (SECURITY DEFINER to bypass RLS during lookup) ──
+-- Uses auth.uid() directly so it works even when RLS policies are evaluated.
+-- auth.uid() is never NULL inside a RLS policy context since the policy only
+-- runs for authenticated calls; an anonymous call sees all rows (per anon policy)
+-- or no rows (if no anon policy).  For admin checks we query profiles; the
+-- SECURITY DEFINER set_path='' wrapper ensures this does not recurse.
 CREATE OR REPLACE FUNCTION get_my_role()
 RETURNS text
 LANGUAGE sql
-SECURITY DEFINER STABLE
+SECURITY DEFINER SET search_path = ''
+STABLE
 AS $$
   SELECT role FROM public.profiles WHERE id = auth.uid();
 $$;
+
+-- Allow auth.uid() to be used in policies without a separate anon-policy.
+-- anon users still get "SQL ERROR:  2026:  JWT expired" or "No JWT" in practice
+-- because Supabase rejects anonymous calls that lack a valid JWT before RLS runs.
 
 -- ── TABLE: profiles ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -85,9 +95,12 @@ CREATE TABLE IF NOT EXISTS public.bus_location_history (
 );
 
 -- ── Indexes ────────────────────────────────────────────────────────
-CREATE INDEX IF NOT EXISTS idx_route_stops_route ON public.route_stops(route_id);
-CREATE INDEX IF NOT EXISTS idx_buses_route        ON public.buses(route_id);
-CREATE INDEX IF NOT EXISTS idx_history_bus_time   ON public.bus_location_history(bus_id, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_route_stops_route  ON public.route_stops(route_id);
+CREATE INDEX IF NOT EXISTS idx_route_stops_stop    ON public.route_stops(stop_id);
+CREATE INDEX IF NOT EXISTS idx_buses_route         ON public.buses(route_id);
+CREATE INDEX IF NOT EXISTS idx_buses_driver        ON public.buses(driver_id);
+CREATE INDEX IF NOT EXISTS idx_history_bus_time    ON public.bus_location_history(bus_id, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_profiles_email      ON public.profiles(email);
 
 -- ── Enable Row Level Security on ALL tables ────────────────────────
 ALTER TABLE public.profiles            ENABLE ROW LEVEL SECURITY;
@@ -115,7 +128,7 @@ END $$;
 
 DO $$ BEGIN
   CREATE POLICY "profiles_service_role_all" ON public.profiles
-    FOR ALL USING (auth.role() = 'service_role');
+    FOR ALL USING ((auth.jwt() ->> 'role') = 'service_role');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -129,7 +142,7 @@ END $$;
 -- routes
 DO $$ BEGIN
   CREATE POLICY "routes_select_authenticated" ON public.routes
-    FOR SELECT USING (auth.role() = 'authenticated');
+    FOR SELECT USING (auth.uid() IS NOT NULL);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -143,7 +156,7 @@ END $$;
 -- stops
 DO $$ BEGIN
   CREATE POLICY "stops_select_authenticated" ON public.stops
-    FOR SELECT USING (auth.role() = 'authenticated');
+    FOR SELECT USING (auth.uid() IS NOT NULL);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -157,7 +170,7 @@ END $$;
 -- route_stops
 DO $$ BEGIN
   CREATE POLICY "route_stops_select_authenticated" ON public.route_stops
-    FOR SELECT USING (auth.role() = 'authenticated');
+    FOR SELECT USING (auth.uid() IS NOT NULL);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -171,7 +184,7 @@ END $$;
 -- buses
 DO $$ BEGIN
   CREATE POLICY "buses_select_active" ON public.buses
-    FOR SELECT USING (is_active = true AND auth.role() = 'authenticated');
+    FOR SELECT USING (is_active = true AND auth.uid() IS NOT NULL);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -191,7 +204,7 @@ END $$;
 -- bus_locations
 DO $$ BEGIN
   CREATE POLICY "bus_locations_select_authenticated" ON public.bus_locations
-    FOR SELECT USING (auth.role() = 'authenticated');
+    FOR SELECT USING (auth.uid() IS NOT NULL);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 

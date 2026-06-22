@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Route } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
 import Badge from '@/components/ui/Badge';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -15,12 +16,16 @@ export default function MapOverlay({
   selectedRouteId,
 }: MapOverlayProps): ReactNode {
   const setSelectedRouteId = useAppStore((s) => s.setSelectedRouteId);
+  const addToast = useAppStore((s) => s.addToast);
 
   const handleSignOut = async (): Promise<void> => {
-    const { supabase } = await import('@/lib/supabase');
-    await supabase.auth.signOut();
-    useAppStore.getState().clearAuth();
-    window.location.href = '/login';
+    try {
+      await supabase.auth.signOut();
+      useAppStore.getState().clearAuth();
+      window.location.href = '/login';
+    } catch {
+      addToast('error', 'Failed to sign out. Please try again.');
+    }
   };
 
   return (
