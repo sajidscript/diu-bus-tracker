@@ -4,6 +4,17 @@
 -- ── Extensions ──────────────────────────────────────────────────────
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+
+-- ── TABLE: profiles ────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id         uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email      text NOT NULL,
+  full_name  text,
+  role       text NOT NULL CHECK (role IN ('student', 'driver', 'admin')),
+  avatar_url text,
+  created_at timestamptz DEFAULT now()
+);
+
 -- ── Helper function for RLS (SECURITY DEFINER to bypass RLS during lookup) ──
 -- Uses auth.uid() directly so it works even when RLS policies are evaluated.
 -- auth.uid() is never NULL inside a RLS policy context since the policy only
@@ -22,17 +33,6 @@ $$;
 -- Allow auth.uid() to be used in policies without a separate anon-policy.
 -- anon users still get "SQL ERROR:  2026:  JWT expired" or "No JWT" in practice
 -- because Supabase rejects anonymous calls that lack a valid JWT before RLS runs.
-
--- ── TABLE: profiles ────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id         uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email      text NOT NULL,
-  full_name  text,
-  role       text NOT NULL CHECK (role IN ('student', 'driver', 'admin')),
-  avatar_url text,
-  created_at timestamptz DEFAULT now()
-);
-
 -- ── TABLE: routes ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.routes (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
