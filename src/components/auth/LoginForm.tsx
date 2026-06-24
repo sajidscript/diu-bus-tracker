@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/lib/supabase';
@@ -12,6 +13,7 @@ import { useState } from 'react';
 export default function LoginForm(): ReactNode {
   const [serverError, setServerError] = useState<string | null>(null);
   const addToast = useAppStore((s) => s.addToast);
+  const navigate = useNavigate();
 
   const {
     register,
@@ -30,6 +32,7 @@ export default function LoginForm(): ReactNode {
       });
       if (error) throw error;
       addToast('success', 'Signed in successfully');
+      navigate('/dashboard');
     } catch (err) {
       let message = 'Sign in failed. Please try again.';
       if (err instanceof Error) {

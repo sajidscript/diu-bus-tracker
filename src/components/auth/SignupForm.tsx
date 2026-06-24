@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +14,7 @@ export default function SignupForm(): ReactNode {
   const [selectedRole, setSelectedRole] = useState<Role>('student');
   const [serverError, setServerError] = useState<string | null>(null);
   const addToast = useAppStore((s) => s.addToast);
+  const navigate = useNavigate();
 
   const activeSchema = selectedRole === 'student' ? signupSchema : driverSignupSchema;
   type ActiveFormData = SignupFormData | DriverSignupFormData;
@@ -61,8 +63,10 @@ export default function SignupForm(): ReactNode {
       if (error) throw error;
       if (data.user && data.session) {
         addToast('success', 'Account created successfully!');
+        navigate('/dashboard');
       } else if (data.user && !data.session) {
         addToast('success', 'Account created. Please check your email to verify your account before signing in.');
+        navigate('/login');
       } else {
         addToast('warning', 'Signup may not have completed. If you already have an account, try signing in.');
       }

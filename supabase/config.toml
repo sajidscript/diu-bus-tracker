@@ -1,0 +1,7 @@
+[auth]
+site_url = "https://diu-bus-tracker.vercel.app"
+additional_redirect_urls = ["http://192.168.0.104:5173", "http://localhost:5173", "https://diu-bus-tracker.vercel.app"]
+
+[auth.email]
+enable_confirmations = true
+max_frequency = "30s"

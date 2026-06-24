@@ -16,24 +16,37 @@ export function useAuth(): {
     useAppStore();
 
   useEffect(() => {
+    let cancelled = false;
+
+    const fetchProfile = async (userId: string, retries = 3): Promise<void> => {
+      for (let attempt = 0; attempt < retries; attempt++) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        if (!error && data) {
+          if (!cancelled) setProfile(data as Profile);
+          return;
+        }
+        if (attempt < retries - 1) {
+          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+        }
+      }
+    };
+
     const getSession = async (): Promise<void> => {
       try {
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
         if (error) throw error;
         setSession(currentSession as { user: { id: string } } | null);
         if (currentSession?.user) {
-          const { data, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', currentSession.user.id)
-            .single();
-          if (profileError) throw profileError;
-          setProfile(data as Profile);
+          await fetchProfile(currentSession.user.id);
         }
       } catch {
         clearAuth();
       } finally {
-        setAuthLoading(false);
+        if (!cancelled) setAuthLoading(false);
       }
     };
 
@@ -43,22 +56,16 @@ export function useAuth(): {
       async (_event, newSession) => {
         setSession(newSession as { user: { id: string } } | null);
         if (newSession?.user) {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', newSession.user.id)
-            .single();
-          if (!error && data) {
-            setProfile(data as Profile);
-          }
+          await fetchProfile(newSession.user.id);
         } else {
           setProfile(null);
         }
-        setAuthLoading(false);
+        if (!cancelled) setAuthLoading(false);
       },
     );
 
     return () => {
+      cancelled = true;
       subscription.unsubscribe();
     };
   }, [setSession, setProfile, setAuthLoading, clearAuth]);
