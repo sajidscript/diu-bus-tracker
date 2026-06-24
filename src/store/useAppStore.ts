@@ -3,6 +3,24 @@ import type { Profile, Role, BusLocation, Toast } from '@/lib/types';
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0'));
+  return [
+    hex.slice(0, 4).join(''),
+    hex.slice(4, 6).join(''),
+    hex.slice(6, 8).join(''),
+    hex.slice(8, 10).join(''),
+    hex.slice(10, 16).join(''),
+  ].join('-');
+}
+
 interface AppState {
   session: { user: { id: string } } | null;
   profile: Profile | null;
@@ -65,7 +83,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   addToast: (type, message) =>
     set((state) => {
-      const id = crypto.randomUUID();
+      const id = generateId();
       const newToast: Toast = { id, type, message };
       const toasts = [...state.toasts, newToast].slice(-5);
       const delay = type === 'success' ? 3000 : type === 'warning' ? 5000 : null;

@@ -40,15 +40,15 @@ export default function SignupForm(): ReactNode {
     { value: 'admin', label: 'Admin' },
   ];
 
-  const onSubmit = async (data: ActiveFormData): Promise<void> => {
+  const onSubmit = async (formData: ActiveFormData): Promise<void> => {
     setServerError(null);
     try {
-      const email = data.email;
-      const password = data.password;
-      const fullName = data.fullName;
+      const email = formData.email;
+      const password = formData.password;
+      const fullName = formData.fullName;
       const role = selectedRole;
 
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -59,9 +59,25 @@ export default function SignupForm(): ReactNode {
         },
       });
       if (error) throw error;
-      addToast('success', 'Account created successfully. Please check your email to verify.');
+      if (data.user && data.session) {
+        addToast('success', 'Account created successfully!');
+      } else if (data.user && !data.session) {
+        addToast('success', 'Account created. Please check your email to verify your account before signing in.');
+      } else {
+        addToast('warning', 'Signup may not have completed. If you already have an account, try signing in.');
+      }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Sign up failed. Please try again.';
+      let message = 'Sign up failed. Please try again.';
+      if (err instanceof Error) {
+        const msg = err.message.toLowerCase();
+        if (msg.includes('already') || msg.includes('registered')) {
+          message = 'An account with this email already exists. Try signing in instead.';
+        } else if (msg.includes('rate limit') || msg.includes('too many') || msg.includes('email_exceed')) {
+          message = 'Too many signup attempts. Please wait a minute before trying again.';
+        } else {
+          message = err.message;
+        }
+      }
       setServerError(message);
     }
   };

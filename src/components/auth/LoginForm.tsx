@@ -31,7 +31,19 @@ export default function LoginForm(): ReactNode {
       if (error) throw error;
       addToast('success', 'Signed in successfully');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Sign in failed. Please try again.';
+      let message = 'Sign in failed. Please try again.';
+      if (err instanceof Error) {
+        const msg = err.message.toLowerCase();
+        if (msg.includes('rate limit') || msg.includes('too many') || msg.includes('email_exceed')) {
+          message = 'Too many login attempts. Please wait a minute before trying again.';
+        } else if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+          message = 'Invalid email or password. Please check your credentials.';
+        } else if (msg.includes('email not confirmed') || msg.includes('email_not_confirmed')) {
+          message = 'Please verify your email before signing in. Check your inbox for the confirmation link.';
+        } else {
+          message = err.message;
+        }
+      }
       setServerError(message);
     }
   };
