@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRoutes } from '@/hooks/useRoutes';
 import { useAppStore } from '@/store/useAppStore';
@@ -10,7 +10,9 @@ import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Alert from '@/components/ui/Alert';
 
-type AdminTab = 'buses' | 'routes' | 'stops' | 'users';
+type AdminTab = 'buses' | 'routes' | 'stops' | 'users' | 'map';
+
+const BusMap = lazy(() => import('@/components/map/BusMap'));
 
 export default function AdminPage(): ReactNode {
   const [activeTab, setActiveTab] = useState<AdminTab>('buses');
@@ -140,6 +142,7 @@ export default function AdminPage(): ReactNode {
     { key: 'routes', label: 'Routes' },
     { key: 'stops', label: 'Stops' },
     { key: 'users', label: 'Users' },
+    { key: 'map', label: 'Map' },
   ];
 
   const drivers = users.filter((u) => u.role === 'driver');
@@ -190,8 +193,20 @@ export default function AdminPage(): ReactNode {
         ))}
       </div>
 
-      <main className="mx-auto max-w-4xl px-4 py-6 pb-20 sm:pb-6">
-        {error && <Alert type="error" message={error} onDismiss={() => setError(null)} />}
+      <main className={`${activeTab === 'map' ? 'mx-0 max-w-none p-0' : 'mx-auto max-w-4xl px-4 py-6 pb-20 sm:pb-6'}`}>
+        {error && activeTab !== 'map' && <Alert type="error" message={error} onDismiss={() => setError(null)} />}
+
+        {activeTab === 'map' && (
+          <div className="h-[calc(100vh-128px)] sm:h-[calc(100vh-112px)] w-full">
+            <Suspense fallback={
+              <div className="flex h-full items-center justify-center bg-gray-100">
+                <Spinner size="lg" label="Loading map..." />
+              </div>
+            }>
+              <BusMap routeId="all" />
+            </Suspense>
+          </div>
+        )}
 
         {activeTab === 'buses' && (
           <div className="flex flex-col gap-4">

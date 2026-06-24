@@ -91,14 +91,20 @@ export default function BusMapImpl({ routeId }: BusMapImplProps): ReactNode {
             <StopMarker key={stop.id} stop={stop} />
           )),
         )}
-        {locations.map((loc) => (
-          <BusMarker
-            key={loc.bus_id}
-            location={loc}
-            signalLost={staleBusIds.has(loc.bus_id)}
-            route={busRouteMap.get(loc.bus_id) ?? null}
-          />
-        ))}
+        {locations
+          .filter((loc) => {
+            if (routeId === 'all') return true;
+            const matchedRoute = busRouteMap.get(loc.bus_id);
+            return matchedRoute?.id === routeId;
+          })
+          .map((loc) => (
+            <BusMarker
+              key={loc.bus_id}
+              location={loc}
+              signalLost={staleBusIds.has(loc.bus_id)}
+              route={busRouteMap.get(loc.bus_id) ?? null}
+            />
+          ))}
       </MapContainer>
       <MapOverlay
         busCount={locations.length}
