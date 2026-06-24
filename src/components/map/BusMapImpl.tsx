@@ -7,6 +7,7 @@ import { useSignalLost } from '@/hooks/useSignalLost';
 import { supabase } from '@/lib/supabase';
 import type { Bus, Route } from '@/lib/types';
 import BusMarker from '@/components/map/BusMarker';
+import BusReroute from '@/components/map/BusReroute';
 import RoutePolyline from '@/components/map/RoutePolyline';
 import StopMarker from '@/components/map/StopMarker';
 import MapOverlay from '@/components/map/MapOverlay';
@@ -63,6 +64,14 @@ export default function BusMapImpl({ routeId }: BusMapImplProps): ReactNode {
     return routes.filter((r) => r.id === routeId);
   }, [routes, routeId]);
 
+  const filteredLocations = useMemo(() => {
+    if (routeId === 'all') return locations;
+    return locations.filter((loc) => {
+      const matchedRoute = busRouteMap.get(loc.bus_id);
+      return matchedRoute?.id === routeId;
+    });
+  }, [locations, routeId, busRouteMap]);
+
   if (mapLoading && routes.length > 0) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-gray-100">
@@ -91,23 +100,24 @@ export default function BusMapImpl({ routeId }: BusMapImplProps): ReactNode {
             <StopMarker key={stop.id} stop={stop} />
           )),
         )}
-        {locations
-          .filter((loc) => {
-            if (routeId === 'all') return true;
-            const matchedRoute = busRouteMap.get(loc.bus_id);
-            return matchedRoute?.id === routeId;
-          })
-          .map((loc) => (
-            <BusMarker
-              key={loc.bus_id}
-              location={loc}
-              signalLost={staleBusIds.has(loc.bus_id)}
-              route={busRouteMap.get(loc.bus_id) ?? null}
-            />
-          ))}
+        {filteredLocations.map((loc) => (
+          <BusReroute
+            key={`reroute-${loc.bus_id}`}
+            location={loc}
+            route={busRouteMap.get(loc.bus_id) ?? null}
+          />
+        ))}
+        {filteredLocations.map((loc) => (
+          <BusMarker
+            key={loc.bus_id}
+            location={loc}
+            signalLost={staleBusIds.has(loc.bus_id)}
+            route={busRouteMap.get(loc.bus_id) ?? null}
+          />
+        ))}
       </MapContainer>
       <MapOverlay
-        busCount={locations.length}
+        busCount={filteredLocations.length}
         routes={routes}
         selectedRouteId={routeId}
       />
