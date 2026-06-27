@@ -9,8 +9,9 @@ import Spinner from '@/components/ui/Spinner';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Alert from '@/components/ui/Alert';
+import DriverAssignModal from '@/components/admin/DriverAssignModal';
 
-type AdminTab = 'buses' | 'routes' | 'stops' | 'users' | 'map';
+type AdminTab = 'buses' | 'drivers' | 'routes' | 'stops' | 'users' | 'map';
 
 const BusMap = lazy(() => import('@/components/map/BusMap'));
 
@@ -24,6 +25,7 @@ export default function AdminPage(): ReactNode {
   const [newBusNumber, setNewBusNumber] = useState('');
   const [newBusCapacity, setNewBusCapacity] = useState('40');
   const [newBusRouteId, setNewBusRouteId] = useState('');
+  const [assigningBusId, setAssigningBusId] = useState<string | null>(null);
   const addToast = useAppStore((s) => s.addToast);
   const { routes } = useRoutes();
 
@@ -139,6 +141,7 @@ export default function AdminPage(): ReactNode {
 
   const tabs: { key: AdminTab; label: string }[] = [
     { key: 'buses', label: 'Buses' },
+    { key: 'drivers', label: 'Drivers' },
     { key: 'routes', label: 'Routes' },
     { key: 'stops', label: 'Stops' },
     { key: 'users', label: 'Users' },
@@ -244,16 +247,28 @@ export default function AdminPage(): ReactNode {
                           </select>
                         </td>
                         <td className="px-4 py-3">
-                          <select
-                            value={bus.driver_id ?? ''}
-                            onChange={(e) => handleAssignDriver(bus.id, e.target.value)}
-                            className="rounded border border-gray-300 px-2 py-1 text-sm min-h-[36px]"
-                          >
-                            <option value="">None</option>
-                            {drivers.map((d) => (
-                              <option key={d.id} value={d.id}>{d.full_name ?? d.email}</option>
-                            ))}
-                          </select>
+                          {bus.driver_id ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-700">
+                                {drivers.find((d) => d.id === bus.driver_id)?.full_name ?? 'Assigned'}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => setAssigningBusId(bus.id)}
+                              >
+                                Change
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setAssigningBusId(bus.id)}
+                            >
+                              Assign driver
+                            </Button>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <Badge
@@ -276,6 +291,56 @@ export default function AdminPage(): ReactNode {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'drivers' && (
+          <div className="flex flex-col gap-4">
+            <h2 className="text-base font-semibold text-gray-900">Registered drivers</h2>
+            {drivers.length === 0 ? (
+              <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+                <p className="text-gray-500">No drivers registered yet.</p>
+                <p className="text-sm text-gray-400 mt-1">Drivers can sign up with the invite code, then appear here.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-left">
+                    <tr>
+                      <th className="px-4 py-3 font-medium text-gray-700">Serial code</th>
+                      <th className="px-4 py-3 font-medium text-gray-700">Name</th>
+                      <th className="px-4 py-3 font-medium text-gray-700">Email</th>
+                      <th className="px-4 py-3 font-medium text-gray-700">Assigned bus</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {drivers.map((driver) => {
+                      const assignedBus = buses.find((b) => b.driver_id === driver.id);
+                      return (
+                        <tr key={driver.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            {driver.serial_code ? (
+                              <Badge label={driver.serial_code} color="green" />
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-gray-900">{driver.full_name ?? '—'}</td>
+                          <td className="px-4 py-3 text-gray-600">{driver.email}</td>
+                          <td className="px-4 py-3">
+                            {assignedBus ? (
+                              <Badge label={assignedBus.bus_number} color="green" />
+                            ) : (
+                              <span className="text-gray-400">Not assigned</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -420,6 +485,16 @@ export default function AdminPage(): ReactNode {
           </Button>
         </div>
       </Modal>
+
+      {assigningBusId && (
+        <DriverAssignModal
+          open={!!assigningBusId}
+          onClose={() => setAssigningBusId(null)}
+          drivers={drivers}
+          currentDriverId={buses.find((b) => b.id === assigningBusId)?.driver_id ?? null}
+          onAssign={(driverId) => handleAssignDriver(assigningBusId, driverId)}
+        />
+      )}
     </div>
   );
 }

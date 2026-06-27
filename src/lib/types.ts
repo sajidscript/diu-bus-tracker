@@ -12,6 +12,7 @@ export interface Profile {
   email: string;
   full_name: string | null;
   role: Role;
+  serial_code: string | null;
   avatar_url: string | null;
   created_at: string;
 }
